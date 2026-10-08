@@ -1,0 +1,15 @@
+[Api]
+BaseUrl=http://localhost:2002/tms/northwind/xdata
+EchoBaseUrl=http://localhost:2002/tms/northwind/echo
+
+[Sphinx]
+Authority=http://localhost:2003/tms/northwind/sphinx
+ClientId=northwind-desktop
+Scope=openid email northwind-api offline_access
+
+[RemoteDB]
+ServerUri=http://localhost:2001/tms/northwind/remotedb/
+
+[Database]
+Driver=MSSQL
+Database=Northwind
