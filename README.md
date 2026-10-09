@@ -69,3 +69,34 @@ Run `Northwind.RemoteDB` first, then `Northwind.EchoSetup` once against the disp
 The API subscribes Aurelius changes to Echo, routes changes periodically, and exposes Echo's authenticated XData synchronization module at `/tms/northwind/echo`. The Echo module is for replica synchronization, not a second SQL client path. This desktop client does not yet host an offline replica; using Echo from a replica additionally requires an Echo-compatible local database, Echo's local metadata schema, node registration, and an initial data load, configured with the installed Echo release.
 
 The exact project build and run steps depend on the installed vendor package versions and SQL Server connection policy. After those local prerequisites are present, the project can be compiled and the endpoint workflows exercised against a disposable Northwind database.
+
+## AlphaERP Windows service and monitor
+
+The repository also includes an independent Win32 Windows Service host and VCL tray monitor:
+
+| Project / unit | Purpose |
+| --- | --- |
+| `src/server/alphaerp/AlphaERP.Service.dpr` | Native Delphi service executable and management command entry point |
+| `src/server/alphaerp/AlphaERP.ServiceHost.pas` | XData/HTTP.sys lifecycle, Aurelius connection pool, and database health checks |
+| `src/server/alphaerp/AlphaERP.ServiceModule.pas` | Windows Service Control Manager lifecycle wrapper |
+| `src/server/alphaerp/AlphaERP.Health.Service.pas` | Local-only XData health service |
+| `src/client/alphaerp-monitor/AlphaERP.Monitor.dpr` | Separate interactive VCL monitoring application |
+| `src/shared/AlphaERP.Config.pas` | Validated external INI configuration and secret lookup |
+| `src/shared/AlphaERP.Logging.pas` | Timestamped, leveled file logging with bounded size rotation |
+| `src/shared/AlphaERP.Status.pas` | Thread-safe service, API, and database status snapshot |
+| `src/shared/AlphaERP.ServiceControl.pas` | SCM query/start/stop/restart operations |
+| `config/AlphaERP.ini.example` | Documented non-secret service configuration |
+
+The service reuses this repository's current Northwind Aurelius entities and `CreateOrder` XData operation; it does not define an AlphaERP-specific database schema or business model. The REST API is mounted at the configured `ApiBaseUrl` and requires the same HMAC JWT key used by the token issuer. The separate health module has no bearer-token requirement, but its URL is validated to bind to a loopback host only. It reports service/API state, process start information, recent database connectivity, and diagnostic errors. The tray monitor queries the Windows SCM for state and PID, polls this local health interface on a worker thread, and offers dashboard, service control, log/config opening, and Explorer-restart tray-icon recovery.
+
+### Configure and install
+
+1. Build `AlphaERP.Service.dpr` and `AlphaERP.Monitor.dpr` in Delphi 10.3 Rio / Win32 with the installed TMS XData, Aurelius, Sparkle, TMS Logging, and FireDAC SQL Server packages. The repository uses `.dpr` source projects (as the existing applications do); Delphi can create local IDE project metadata when opened.
+2. Copy `config/AlphaERP.ini.example` to `AlphaERP.ini` beside each executable, or set `ALPHAERP_CONFIG_FILE` to the same absolute configuration path for the service and monitor.
+3. Set `ALPHAERP_SQL_USER`, `ALPHAERP_SQL_PASSWORD`, and `NORTHWIND_JWT_SECRET` in the service account's protected environment/secret store. The JWT secret must contain at least 32 UTF-8 bytes and must match the issuer. Do not put secrets in the INI file.
+4. Grant the service account permission to the log directory and HTTP.sys URL reservations for the configured API and health prefixes. For a non-loopback API URL, use HTTPS, provision the HTTP.sys certificate binding separately, and restrict the endpoint at the network firewall. `TlsCertificateThumbprint` is retained for operator documentation; the certificate itself is bound by Windows HTTP.sys, not loaded from the INI.
+5. From an elevated command prompt, install and manage the service with `AlphaERP.Service.exe /install`, `/uninstall`, `/start`, `/stop`, `/restart`, or `/status`. `/install` uses the configured `StartMode`; the service executable handles the remaining management commands. Run `AlphaERP.Monitor.exe` in the interactive user session; do not run the VCL monitor inside the service process.
+
+The sample binds API HTTP only to `localhost` and health HTTP only to `127.0.0.1`; change neither to a public host without HTTPS and corresponding HTTP.sys/network configuration. The API uses the existing `TJwtMiddleware` convention and denies anonymous access. The health response is intentionally minimal and loopback-only; do not publish it through a reverse proxy.
+
+The Delphi 10.3 compiler is available in the development environment, but the proprietary TMS XData/Aurelius/Sparkle/Logging packages are not installed there. Consequently the service and monitor projects cannot be fully compiled or exercised in this checkout. Their XData server construction, Aurelius FireDAC adapter, and service APIs follow the existing repository examples and Delphi VCL service conventions and must be verified against the exact local vendor package builds. In particular, request-level logging hooks and XData/Sparkle HTTP request timeout configuration are version-specific and are not guessed; the implementation logs host lifecycle, configuration/startup failures, and database health transitions. The configured timeout bounds service-control restart waits, not individual REST requests.
