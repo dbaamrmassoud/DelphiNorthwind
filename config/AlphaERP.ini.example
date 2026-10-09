@@ -1,0 +1,47 @@
+; Copy this file to AlphaERP.ini beside both executables, or set
+; ALPHAERP_CONFIG_FILE to an absolute path visible to the service account.
+; This file contains endpoint and database metadata only; credentials belong
+; in protected machine/service environment variables.
+
+[Service]
+; Must be a valid Delphi component/service identifier.
+Name=AlphaERPService
+DisplayName=AlphaERP Service
+; Public XData API. Use HTTPS for non-loopback listeners.
+ApiBaseUrl=http://localhost:2004/tms/alphaerp/xdata
+; Anonymous health is bound to loopback only; do not change to a public host.
+HealthBaseUrl=http://127.0.0.1:2005/tms/alphaerp/health
+; Used when installing with the Delphi service executable's /install switch.
+StartMode=auto
+; Bounds wait time for monitor restart operations. XData request timeouts depend
+; on the installed Sparkle/XData version and are not changed by this setting.
+RequestTimeoutMilliseconds=30000
+HealthCheckIntervalSeconds=30
+
+[Database]
+; SQL Server endpoint and database used by the existing Northwind Aurelius map.
+Server=localhost
+Database=Northwind
+LoginTimeoutSeconds=15
+UserEnvironmentVariable=ALPHAERP_SQL_USER
+PasswordEnvironmentVariable=ALPHAERP_SQL_PASSWORD
+; Prefer encrypted SQL connections and validate the server certificate.
+Encrypt=true
+TrustServerCertificate=false
+MaxConnections=32
+
+[Security]
+; Must match the key used by the token issuer (Northwind Sphinx by default).
+JwtSecretEnvironmentVariable=NORTHWIND_JWT_SECRET
+; Configure the certificate in the Windows HTTP.sys SSL binding. The thumbprint
+; is documented here for operators; HTTP.sys owns certificate binding.
+TlsCertificateThumbprint=
+
+[Logging]
+Directory=C:\ProgramData\AlphaERP\Logs
+FileName=AlphaERP.log
+; DEBUG, INFO, WARNING, or ERROR.
+Level=INFO
+MaxSizeMB=10
+; Number of rotated files to keep, in addition to the current log.
+MaxFiles=5
